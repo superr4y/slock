@@ -16,6 +16,7 @@
 #include <sys/types.h>
 #include <X11/extensions/Xrandr.h>
 #include <X11/keysym.h>
+#include <X11/XF86keysym.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
@@ -144,6 +145,23 @@ readpw(Display *dpy, struct xrandr *rr, struct lock **locks, int nscreens,
 		if (ev.type == KeyPress) {
 			explicit_bzero(&buf, sizeof(buf));
 			num = XLookupString(&ev.xkey, buf, sizeof(buf), &ksym, 0);
+			if(ksym == XF86XK_AudioNext){
+				printf("dbus-send ret code: %x\n", 
+						system("exec /usr/bin/dbus-send \
+							--print-reply \
+							--dest=org.mpris.MediaPlayer2.spotify \
+							/org/mpris/MediaPlayer2 \
+							org.mpris.MediaPlayer2.Player.Next"));
+				continue;
+			} else if (ksym == XF86XK_AudioPrev){
+				printf("dbus-send ret code: %x\n", 
+						system("exec /usr/bin/dbus-send \
+							--print-reply \
+							--dest=org.mpris.MediaPlayer2.spotify \
+							/org/mpris/MediaPlayer2 \
+							org.mpris.MediaPlayer2.Player.Previous"));
+				continue;
+			} 
 			if (IsKeypadKey(ksym)) {
 				if (ksym == XK_KP_Enter)
 					ksym = XK_Return;
@@ -307,10 +325,10 @@ int
 main(int argc, char **argv) {
 	struct xrandr rr;
 	struct lock **locks;
-	struct passwd *pwd;
-	struct group *grp;
-	uid_t duid;
-	gid_t dgid;
+	//struct passwd *pwd;
+	//struct group *grp;
+	//uid_t duid;
+	//gid_t dgid;
 	const char *hash;
 	Display *dpy;
 	int s, nlocks, nscreens;
@@ -324,16 +342,16 @@ main(int argc, char **argv) {
 	} ARGEND
 
 	/* validate drop-user and -group */
-	errno = 0;
-	if (!(pwd = getpwnam(user)))
-		die("slock: getpwnam %s: %s\n", user,
-		    errno ? strerror(errno) : "user entry not found");
-	duid = pwd->pw_uid;
-	errno = 0;
-	if (!(grp = getgrnam(group)))
-		die("slock: getgrnam %s: %s\n", group,
-		    errno ? strerror(errno) : "group entry not found");
-	dgid = grp->gr_gid;
+	//errno = 0;
+	//if (!(pwd = getpwnam(user)))
+	//	die("slock: getpwnam %s: %s\n", user,
+	//	    errno ? strerror(errno) : "user entry not found");
+	//duid = pwd->pw_uid;
+	//errno = 0;
+	//if (!(grp = getgrnam(group)))
+	//	die("slock: getgrnam %s: %s\n", group,
+	//	    errno ? strerror(errno) : "group entry not found");
+	//dgid = grp->gr_gid;
 
 #ifdef __linux__
 	dontkillme();
@@ -350,10 +368,16 @@ main(int argc, char **argv) {
 	/* drop privileges */
 	if (setgroups(0, NULL) < 0)
 		die("slock: setgroups: %s\n", strerror(errno));
-	if (setgid(dgid) < 0)
-		die("slock: setgid: %s\n", strerror(errno));
-	if (setuid(duid) < 0)
-		die("slock: setuid: %s\n", strerror(errno));
+	if(seteuid(getuid())){
+		die("slock: seteuid: %s\n", strerror(errno));
+	}
+	if(setegid(getgid())){
+		die("slock: setegid: %s\n", strerror(errno));
+	}
+	//if (setgid(dgid) < 0)
+	//	die("slock: setgid: %s\n", strerror(errno));
+	//if (setuid(duid) < 0)
+	//	die("slock: setuid: %s\n", strerror(errno));
 
 	/* check for Xrandr support */
 	rr.active = XRRQueryExtension(dpy, &rr.evbase, &rr.errbase);
